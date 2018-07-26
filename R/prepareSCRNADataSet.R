@@ -62,7 +62,7 @@ preparePCATSNEData <- function(sces, ncomponents = 10, perplexity = 20) {
   ave.counts <- calcAverage(sceall)
   high.ave <- ave.counts >= 0.1
   clusters <- quickCluster(sceall, subset.row = high.ave, method = "igraph")
-  sceall <- computeSumFactors(sceall, cluster = clusters, subset.row = high.ave, min.mean = NULL)
+  sceall <- computeSumFactors(sceall, cluster = clusters, subset.row = high.ave, min.mean = 0, positive = TRUE)
   sceall <- normalize(sceall)
   
   sceall <- runPCA(sceall, ncomponents = ncomponents)
