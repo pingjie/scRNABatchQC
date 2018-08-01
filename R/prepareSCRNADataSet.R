@@ -41,7 +41,7 @@ prepareSCRNADataSet <- function(sampleTable, organism){
 ##' @examples 
 ##' #sces <- prepareSCRNADataSet(sampleTable)
 ##' #sceall <- preparePCATSNEData(sces)
-reparePCATSNEData <- function(sces, ncomponents = 10, perplexity = 20) {
+preparePCATSNEData <- function(sces, ncomponents = 10, perplexity = 20) {
   
   allct <- data.table(cbind(rownames(counts(sces[[1]]$sce)), counts(sces[[1]]$sce)), key = "V1")
   conditions <- rep(names(sces)[1], dim(sces[[1]]$sce)[2])
