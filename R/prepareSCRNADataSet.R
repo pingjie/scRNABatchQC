@@ -57,7 +57,7 @@ preparePCATSNEData <- function(sces, ncomponents = 10, perplexity = 20) {
 	  }
   }
   
-  sceall <- SingleCellExperiment(list(counts = alldt))
+  sceall <- SingleCellExperiment(list(counts = allct))
   
   colData(sceall)$condition <- conditions
   
