@@ -153,7 +153,7 @@
   
   cat("performing differential analysis ...\n")
   
-  fit <- lmFit(logcounts(scesall), design)
+  fit <- lmFit(scesall$logcounts, design)
   contrast.matrix <- makeContrasts(contrasts = cont, levels = design)
   
   fit2 <- contrasts.fit(fit, contrast.matrix)
@@ -163,7 +163,7 @@
   pairTables <- list()
   
   for (i in 1 : coefNo) {
-    pairTables[[i]] <- topTable(fit2, coef = i, num = dim(scesall)[1], sort.by = "none")
+    pairTables[[i]] <- topTable(fit2, coef = i, num = dim(scesall$logcounts)[1], sort.by = "none")
   }
   names(pairTables) <- cont
   
