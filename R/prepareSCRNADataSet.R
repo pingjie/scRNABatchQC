@@ -30,10 +30,7 @@ prepareSCRNADataSet <- function(sampleTable, organism){
 ##' The function prepare statistics information from multiple scRNA dataset.
 ##'
 ##' @param sces a named list of makeSCRNAdata result
-##' @return a sce:SingleCellExperiment data with PCA and TSNE
-##' @importFrom SingleCellExperiment SingleCellExperiment reducedDim
-##' @importFrom Scater calculateQCMetrics isOutlier calcAverage nexprs normalize runPCA .get_palette
-##' @importFrom Scran quickCluster computeSumFactors trendVar decomposeVar
+##' @return a list with PCA and TSNE data
 ##' @importFrom Rtsne Rtsne
 ##' @importFrom Matrix Matrix
 ##' @export preparePCATSNEData
@@ -41,7 +38,7 @@ prepareSCRNADataSet <- function(sampleTable, organism){
 ##' #sces <- prepareSCRNADataSet(sampleTable)
 ##' #sceall <- preparePCATSNEData(sces)
 preparePCATSNEData <- function(sces, ncomponents = 10, perplexity = 20) {
-  
+  pca_tsne_data <- list()
   allct <- as(counts(sces[[1]]$sce), "RsparseMatrix")
   conditions <- rep(names(sces)[1], dim(sces[[1]]$sce)[2])
   colnames(allct) <- paste0(names(sces)[1], "cell", 1:dim(sces[[1]]$sce)[2])
@@ -56,23 +53,26 @@ preparePCATSNEData <- function(sces, ncomponents = 10, perplexity = 20) {
 	  }
   }
   
-  sceall <- SingleCellExperiment(list(counts = allct))
+  lib_size <- colSums(allct)/mean(colSums(allct))
   
-  colData(sceall)$condition <- conditions
+  counts_norm_lib_size <- t(apply(allct, 1, function(x) x/lib_size ))
+  num.cells <- rowSums(allct != 0)
+  to.keep <- num.cells > 0
   
-  ave.counts <- calcAverage(sceall)
-  high.ave <- ave.counts >= 0.1
-  clusters <- quickCluster(sceall, subset.row = high.ave, method = "igraph")
-  sceall <- computeSumFactors(sceall, cluster = clusters, subset.row = high.ave, min.mean = 0, positive=TRUE)
-  sceall <- normalize(sceall)
+  scesdata <- log2(counts_norm_lib_size[to.keep, ] + 1)
   
-  sceall <- runPCA(sceall, ncomponents = ncomponents)
+  scevar <- apply(scesdata, 1, var)
   
+  feature_set <- head(order(scevar, decreasing = T), n = 500)
+  pca_tsne_data$pca <- prcomp(t(scesdata[feature_set, , drop = FALSE]), rank. = ncomponents)
+  
+  pca_tsne_data$condition <- sapply(rownames(pca_tsne_data$pca$x), function(x) strsplit(x, "cell")[[1]][1])
+
   set.seed(100)
+  tsne_out <- Rtsne(pca_tsne_data$pca$x, initial_dims = ncol(pca_tsne_data$pca$x), pca = FALSE, perplexity = perplexity)
   
-  tsne_out <- Rtsne(reducedDim(sceall, "PCA"), initial_dims = ncol(reducedDim(sceall, "PCA")), pca = FALSE, perplexity = perplexity)
-  reducedDim(sceall, "TSNE") <- tsne_out$Y
-  
-  return(sceall)
+  pca_tsne_data$tsne <- tsne_out$Y
+
+  return(pca_tsne_data)
 }
 

@@ -190,16 +190,17 @@ plotSampleSimilarity <- function(sces, ...) {
 
 ####################### PCA ##############
 
-plotAllPCA <- function(sceall, scolors = 1:length(sces), size = 2) {
-  pcadata <- data.frame(PC1 = reducedDim(sceall, "PCA")[, 1],
-                        PC2 = reducedDim(sceall, "PCA")[, 2], 
-                        Sample = as.factor(colData(sceall)["condition"][, 1]))
-  pcalabs <- attr(reducedDim(sceall), "percentVar")
+plotAllPCA <- function(pca_tsne_data, scolors = 1:length(sces), size = 2) {
+  pcadata <- data.frame(PC1 = pca_tsne_data$pca$x[, 1], PC2 = pca_tsne_data$pca$x[, 2], Sample = as.factor(pca_tsne_data$condition))
+  
+  eigs <- pca_tsne_data$pca$sdev ^ 2
+  pc1pct <- eigs[1] / sum(eigs)
+  pc2pct <- eigs[2] / sum(eigs)
   
   p_pca <- ggplot(pcadata, aes(x = PC1, y = PC2, label = Sample)) + 
     geom_point(aes(col = Sample), size = size) + 
-    xlab(paste0("PC1(", round(pcalabs[1] * 100), "%)")) + 
-    ylab(paste0("PC2(", round(pcalabs[2] * 100), "%)")) + 
+    xlab(paste0("PC1(", round(pc1pct * 100), "%)")) + 
+    ylab(paste0("PC2(", round(pc2pct * 100), "%)")) + 
     scale_colour_manual(values = scolors) + theme_classic()
   
   return(p_pca)
@@ -207,10 +208,8 @@ plotAllPCA <- function(sceall, scolors = 1:length(sces), size = 2) {
 
 ####################### TSNE ##############
 
-plotAllTSNE <- function(sceall, scolors = 1:length(sces), size = 1.5) {
-  tsnedata <- data.frame(D1 = reducedDim(sceall, "TSNE")[, 1],
-                         D2 = reducedDim(sceall, "TSNE")[, 2], 
-                         Sample = as.factor(colData(sceall)["condition"][, 1]))
+plotAllTSNE <- function(pca_tsne_data, scolors = 1:length(sces), size = 1.5) {
+  tsnedata <- data.frame(D1 = pca_tsne_data$tsne[, 1], D2 = pca_tsne_data$tsne[, 2], Sample = as.factor(pca_tsne_data$condition))
   
   p_tsne <- ggplot(tsnedata, aes(x = D1, y = D2, label = Sample)) + 
     geom_point(aes(col = Sample), size = size) + 
