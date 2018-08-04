@@ -80,7 +80,7 @@
   if(is.null(sdata)){
     stop(paste0(metaObjectName, " is not exists in object sces"))
   }
-
+  
   sdata$FDR[sdata$FDR==Inf]<-max(sdata$FDR[sdata$FDR!=Inf]) + 1
   
   mdata<-reshape2::dcast(sdata, Pathway~Sample, value.var="FDR", fill=0)
@@ -174,50 +174,55 @@
     diffglist <- unique(c(diffglist, diffgenes))
   }
   
-  diffFC<-NULL
-  for (i in 1:coefNo) {
-    matchid <- rownames(pairTables[[i]]) %in% diffglist
-    diffFC <- rbind(diffFC, data.frame(Comparison=cont[i], Gene=rownames(pairTables[[i]])[matchid], LogFold=pairTables[[i]]$logFC[matchid]))
-  }
-  mDiffFC<-dcast(diffFC, Gene ~ Comparison, value.var="LogFold", fill=0)
-  rownames(mDiffFC)<-mDiffFC$Gene
-  
-  for (con in cont){
-    if (!(con %in% colnames(mDiffFC))){
-      mDiffFC[,con]<-rnorm(nrow(mDiffFC), 0, 0.01)
-    }
-  }
-  mDiffFC<-mDiffFC[,-1,drop=F] 
-  
+  mDiffFC<-NULL
   mDiffPathway<-NULL
-  if(!missing(organism)){
-    diffPathList<-NULL
+  if(length(diffglist) > 0){
+    diffFC<-NULL
     for (i in 1:coefNo) {
-      cat("pathway analysis of", i, ":", cont[i], "\n")
-      
-      diffvs <- pairTables[[i]][abs(pairTables[[i]]$logFC) > 1 & pairTables[[i]]$adj.P.Val < FDR, ]
-      alldiffgenes<-rownames(diffvs)
-      pathList<-.getWebGestaltPathway(alldiffgenes, organism)
-      if (!is.null(pathList)){
-        pathList$Comparison <- cont[[i]]
-        diffPathList<-rbind(diffPathList, pathList)
+      matchid <- rownames(pairTables[[i]]) %in% diffglist
+      diffFC <- rbind(diffFC, data.frame(Comparison=cont[i], Gene=rownames(pairTables[[i]])[matchid], LogFold=pairTables[[i]]$logFC[matchid]))
+    }
+    mDiffFC<-dcast(diffFC, Gene ~ Comparison, value.var="LogFold", fill=0)
+    rownames(mDiffFC)<-mDiffFC$Gene
+    
+    for (con in cont){
+      if (!(con %in% colnames(mDiffFC))){
+        mDiffFC[,con]<-rnorm(nrow(mDiffFC), 0, 0.01)
       }
     }
+    mDiffFC<-mDiffFC[,-1,drop=F] 
     
-    if(!is.null(diffPathList)){
-      infDiffIndex<-diffPathList$FDR==Inf
-      if(sum(infDiffIndex) > 0){
-        maxFdr<-max(diffPathList$FDR[diffPathList$FDR!=Inf,])
-        diffPathList$FDR[infDiffIndex]<-maxFdr+1
-      }
-      mDiffPathway<-dcast(diffPathList, Pathway ~ Comparison, value.var="FDR", fill=0)
-      for (con in cont){
-        if (!(con %in% colnames(mDiffPathway))){
-          mDiffPathway[,con]<-abs(rnorm(nrow(mDiffPathway), 0, 0.01))
+    if(!missing(organism)){
+      diffPathList<-NULL
+      for (i in 1:coefNo) {
+        cat("pathway analysis of", i, ":", cont[i], "\n")
+        
+        diffvs <- pairTables[[i]][abs(pairTables[[i]]$logFC) > 1 & pairTables[[i]]$adj.P.Val < FDR, ]
+        if(nrow(diffvs) > 1){
+          alldiffgenes<-rownames(diffvs)
+          pathList<-.getWebGestaltPathway(alldiffgenes, organism)
+          if (!is.null(pathList)){
+            pathList$Comparison <- cont[[i]]
+            diffPathList<-rbind(diffPathList, pathList)
+          }
         }
       }
-      rownames(mDiffPathway)<-mDiffPathway$Pathway
-      mDiffPathway<-mDiffPathway[,-1,drop=F]
+      
+      if(!is.null(diffPathList)){
+        infDiffIndex<-diffPathList$FDR==Inf
+        if(sum(infDiffIndex) > 0){
+          maxFdr<-max(diffPathList$FDR[diffPathList$FDR!=Inf,])
+          diffPathList$FDR[infDiffIndex]<-maxFdr+1
+        }
+        mDiffPathway<-dcast(diffPathList, Pathway ~ Comparison, value.var="FDR", fill=0)
+        for (con in cont){
+          if (!(con %in% colnames(mDiffPathway))){
+            mDiffPathway[,con]<-abs(rnorm(nrow(mDiffPathway), 0, 0.01))
+          }
+        }
+        rownames(mDiffPathway)<-mDiffPathway$Pathway
+        mDiffPathway<-mDiffPathway[,-1,drop=F]
+      }
     }
   }
   
@@ -259,26 +264,4 @@
   mdata <- as.matrix(mdata[, c(2:ncol(mdata))])
   
   return(mdata)
-}
-
-.mergeSparseMatrix <- function(mat1, mat2) {
-	mat1_diff_mat2_rownames <- setdiff(rownames(mat2), rownames(mat1))
-	mat2_diff_mat1_rownames <- setdiff(rownames(mat1), rownames(mat2))
-
-	allrown <- union(rownames(mat1), rownames(mat2))
-
-	suppmat1 <- Matrix(nrow = length(mat1_diff_mat2_rownames), ncol = ncol(mat1), 0)
-	rownames(suppmat1) <- mat1_diff_mat2_rownames
-	colnames(suppmat1) <- colnames(mat1)
-
-	suppmat2 <- Matrix(nrow = length(mat2_diff_mat1_rownames), ncol = ncol(mat2), 0)
-	rownames(suppmat2) <- mat2_diff_mat1_rownames
-	colnames(suppmat2) <- colnames(mat2)
-
-	mat1_more <- rbind(mat1, suppmat1)
-	mat2_more <- rbind(mat2, suppmat2)
-
-	mat <- cbind(mat1_more[allrown, ], mat2_more[allrown, ])
-
-	return(mat)
 }
