@@ -35,8 +35,6 @@ prepareSCRNADataSet <- function(sampleTable, organism){
 ##' @importFrom Scater calculateQCMetrics isOutlier calcAverage nexprs normalize runPCA .get_palette
 ##' @importFrom Scran quickCluster computeSumFactors trendVar decomposeVar
 ##' @importFrom Rtsne Rtsne
-##' @importFrom data.table data.table
-##' @importFrom Matrix.utils merge
 ##' @export preparePCATSNEData
 ##' @examples 
 ##' #sces <- prepareSCRNADataSet(sampleTable)
