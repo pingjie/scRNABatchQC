@@ -102,15 +102,16 @@
     stop("Need to specify feature of .getColData")
   }
   
-  fNo <- which(colnames(colData(sces[[1]]$sce)) == feature)
+  fNo <- which(names(sces[[1]]) == feature)
   if(length(fNo) == 0){
     stop(paste0("Feature ", feature, " is not exists in object sces"))
   }
   
   result<-NULL
   for (i in 1:length(sces)) {
-    result<-rbind(result, data.frame(Sample=names(sces)[i], Value=colData(sces[[i]]$sce)[, fNo]))
+    result<-rbind(result, data.frame(Sample=names(sces)[i], Value=sces[[i]][fNo]))
   }
+  colnames(result) <- c("Sample", "Value")
   return(result)
 }
 
@@ -287,3 +288,27 @@
   
   return(mat)
 }
+
+.findOutlier <- function (dat, nmads = 5, type = c("lower", "higher"), 
+                          logTransform = FALSE, min_diff = NA) {
+  if (logTransform) {
+    dat <- log2(dat)
+  }
+  
+  med <- median(dat, na.rm = TRUE)
+  mad <- mad(dat, center = med, na.rm = TRUE)
+  
+  diff.val <- max(min_diff, nmads * mad, na.rm = TRUE)
+  upper.limit <- med + diff.val
+  lower.limit <- med - diff.val
+  
+  type <- match.arg(type)
+  if (type == "lower") {
+    upper.limit <- Inf
+  } else if (type == "higher") {
+    lower.limit <- -Inf
+  }
+  
+  return(dat < lower.limit | upper.limit < dat)
+}
+

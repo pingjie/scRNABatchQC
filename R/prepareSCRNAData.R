@@ -7,12 +7,9 @@
 ##'                                 hvg:high variance genes, 
 ##'                                 pc1genes: genes in first principle component,
 ##'                                 var.fit: variance trend fit result
-##' @importFrom SingleCellExperiment SingleCellExperiment reducedDim
-##' @importFrom Scater calculateQCMetrics isOutlier calcAverage nexprs normalize runPCA .get_palette
-##' @importFrom Scran quickCluster computeSumFactors trendVar decomposeVar
+##' @importFrom scran trendVar decomposeVar
 ##' @importFrom limma lmFit eBayes topTable
-##' @importFrom dynamicTreeCut cutreeDynamic
-##' @importFrom cluster silhouette
+##' @importFrom Matrix Matrix
 ##' @export prepareSCRNAData
 ##' @examples 
 ##' #count1 <- as.matrix(read.csv("sample1.csv"))
@@ -23,97 +20,59 @@ prepareSCRNAData <- function(counts, organism) {
   }
   stopifnot(is.matrix(counts))
   
-  totalCount<-sum(counts)
-  totalCell<-ncol(counts)
-  totalGene<-nrow(counts)
-
-  countInCells<-apply(counts,2,sum)
-  rCount<-.getRange(countInCells)
-
-  geneInCells<-apply(counts > 0,2,sum)
-  rGene<-.getRange(geneInCells)
-
-  sce <- SingleCellExperiment(list(counts = counts))
+  counts <- as(counts, "RsparseMatrix")
   
-  #is mitochondrial genes (human 14 mitochondrial genes and mouse 13 mitochondrial genes)
-  is.mito <- grepl("^mt-|^MT-", rownames(sce)) 
+  scdata <- list()
   
-  sce <- doCall("calculateQCMetrics", object = sce, feature_controls = list(Mt = is.mito), compact=FALSE, .ignoreUnusedArgs=TRUE)
+  scdata$rawdata <- counts
   
-  maxMtRNAPercentage<-max(sce$pct_counts_Mt)
-  maxRRNAPercentage<-0
-
-  ##remove low quality cells
-  libsize.drop <- isOutlier(sce$total_counts, nmads = 3, type = "lower", log = TRUE)
-  FCount<-sum(libsize.drop)
+  scdata$total_counts <- Matrix::colSums(counts)
+  scdata$total_features <- Matrix::colSums(counts != 0)
   
-  if(is.numeric(sce$total_features_by_X)){
-    feature.drop <- isOutlier(sce$total_features_by_X, nmads = 3, type = "lower", log = TRUE)
-  }else{
-    feature.drop <- isOutlier(sce$total_features, nmads = 3, type = "lower", log = TRUE)
-  }
-  FGene<-sum(feature.drop)
+  scdata$is.mito <- grepl("^mt-|^MT-", rownames(counts))
+  scdata$pct_counts_Mt <- 100 * Matrix::colSums(counts[scdata$is.mito, ]) / Matrix::colSums(counts)
   
-  FrRNA<-0
-
-  mito.drop <- isOutlier(sce$pct_counts_Mt, nmads = 3, type = "higher")
-  FmtRNA<-sum(mito.drop)
-
-  combined.drop <- libsize.drop | feature.drop | mito.drop
-  Ftotal<-sum(combined.drop)
+  libsize.drop <- .findOutlier(scdata$total_counts, nmads = 3, type = "lower", log = TRUE)
+  feature.drop <- .findOutlier(scdata$total_features, nmads = 3, type = "lower", log = TRUE)
+  mito.drop <- .findOutlier(scdata$pct_counts_Mt, nmads = 3, type = "higher")
   
-  sce <- sce[, !combined.drop]
+  scdata$counts <- scdata$rawdata[, !(libsize.drop | feature.drop | mito.drop)]
   
-  ##remove genes not expressed in any cells
-  ave.counts <- calcAverage(sce)
-  rowData(sce)$ave.count <- ave.counts
-  num.cells <- nexprs(sce, byrow = TRUE)
-  rowData(sce)$num.cells <- num.cells
-  lowGene <- num.cells == 0
-  sce <- sce[!lowGene, ]
+  scdata$total_counts <- Matrix::colSums(scdata$counts)
+  scdata$total_features <- Matrix::colSums(scdata$counts != 0)
   
-  ##quickCluster and normalization
-  high.ave <- rowData(sce)$ave.count >= 0.1
-  clusters <- quickCluster(sce, subset.row=high.ave, method="igraph")
-  sce <- computeSumFactors(sce, cluster=clusters, subset.row=high.ave, min.mean=0, positive=TRUE)
+  scdata$lib_size <- scdata$total_counts/mean(scdata$total_counts)
   
-  sizeFactorZero <- sizeFactors(sce) == 0
-  sce <- sce[, !sizeFactorZero]
+  counts_norm_lib_size <- t(apply(scdata$counts, 1, function(x) x/scdata$lib_size ))
   
-  metadata(sce)$filters<-c("Count"=totalCount,
-                           "Cell"=totalCell,
-                           "Gene"=totalGene,
-                           "R-Count"=rCount,
-                           "R-Gene"=rGene,
-                           "mtRNA"=maxMtRNAPercentage,
-                           "rRNA"=maxRRNAPercentage,
-                           "F-Count"=FCount,
-                           "F-Gene"=FGene,
-                           "F-rRNA"=FrRNA,
-                           "F-mtRNA"=FmtRNA,
-                           "F"=Ftotal)
-
-  sce <- normalize(sce)
+  scdata$ave.counts <- apply(counts_norm_lib_size, 1, mean)
   
-  ##modeling the technical noise on normalized data and modeling mean-variance relationship
-  var.fit <- trendVar(sce, parametric = TRUE, span = 0.2, use.spikes = FALSE)
-  var.out <- decomposeVar(sce, var.fit)
+  scdata$num.cells <- Matrix::rowSums(scdata$counts != 0)
+  to.keep <- scdata$num.cells > 0
   
-  sce <- runPCA(sce,ncomponents = 10) 
+  scdata$data <- log2(counts_norm_lib_size[to.keep, ] + 1)
   
-  ##interpreting heterogeneity across PC1
-  pc1 <- reducedDim(sce, "PCA")[,1]
-  design <- model.matrix(~pc1)
+  scdata$mean <- apply(scdata$data, 1, mean)
+  scdata$var <- apply(scdata$data, 1, var)
   
-  fit <- lmFit(logcounts(sce), design)
+  scdata$varTrend <- trendVar(scdata$data, parametric = TRUE)
+  scdata$trends <- scdata$varTrend$trend(scdata$mean)
+  
+  scdata$hvg <- decomposeVar(scdata$data, scdata$varTrend)
+  
+  feature_set <- head(order(scdata$var, decreasing = T), n = 500)
+  scdata$pca <- prcomp(t(scdata$data[feature_set, , drop = FALSE]), rank. = 10)
+  
+  design <- model.matrix( ~ scdata$pca$x[, 1])
+  fit <- lmFit(scdata$data, design)
   fit <- eBayes(fit, trend = TRUE, robust = TRUE)
   
-  pc1genes <- topTable(fit, coef = 2, n = dim(sce)[1], sort.by = "none")
-  
+  scdata$pc1genes <- topTable(fit, coef = 2, n = dim(scdata$data)[1], sort.by = "none")
+
   if(!missing(organism)){
-    metadata(sce)$hvgPathway <- .getIndividualPathway(var.out, "FDR", organism)
-    metadata(sce)$pc1Pathway <- .getIndividualPathway(pc1genes, "adj.P.Val", organism)
+    scdata$hvgPathway <- .getIndividualPathway(scdata$hvg, "FDR", organism)
+    scdata$pc1Pathway <- .getIndividualPathway(scdata$pc1genes, "adj.P.Val", organism)
   }
 
-  return(list(sce = sce, hvg = var.out, pc1genes = pc1genes, var.fit = var.fit))
+  return(scdata)
 }

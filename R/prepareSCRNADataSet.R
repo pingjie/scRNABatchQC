@@ -6,10 +6,8 @@
 ##' @return a named list of makeSCRNAdata result
 ##' @export prepareSCRNADataSet
 ##' @examples 
-##' #sampleTable<-data.frame(Sample=c("S1", "S2", "S3"),
-##' #                        File=file.path(("Z:/shengq1/20180214_scRNABatchQC/", c("S1.csv", "S2.csv", "S3.csv")),
-##' #                        Transform=c(1,1,1))
-##' #sces<-prepareSCRNADataSet(sampleTable)
+##' #sampleTable <- data.frame(Sample = c("S1", "S2", "S3"), File = c("count1.csv", "count2.csv", "count3.csv"))
+##' #sces <- prepareSCRNADataSet(sampleTable)
 prepareSCRNADataSet <- function(sampleTable, organism){
   result <- list()
   
@@ -18,7 +16,7 @@ prepareSCRNADataSet <- function(sampleTable, organism){
     sampleName<-as.character(sampleTable[n,1])
     countFile<-as.character(sampleTable[n,2])
     cat("Preparing ", sampleName, "\n")
-    counts<-as.matrix(read.csv(countFile, row.names=1, header=T))
+    counts <- as.matrix(read.csv(countFile, row.names=1, header=T))
     result[[n]] <- prepareSCRNAData(counts, organism)
   }
   names(result) <- sampleTable[, 1]
@@ -39,24 +37,25 @@ prepareSCRNADataSet <- function(sampleTable, organism){
 ##' #sceall <- preparePCATSNEData(sces)
 preparePCATSNEData <- function(sces, ncomponents = 10, perplexity = 20) {
   pca_tsne_data <- list()
-  allct <- as(counts(sces[[1]]$sce), "RsparseMatrix")
-  conditions <- rep(names(sces)[1], dim(sces[[1]]$sce)[2])
-  colnames(allct) <- paste0(names(sces)[1], "cell", 1:dim(sces[[1]]$sce)[2])
+  
+  allct <- as(sces[[1]]$data, "RsparseMatrix")
+  conditions <- rep(names(sces)[1], dim(sces[[1]]$data)[2])
+  colnames(allct) <- paste0(names(sces)[1], "cell", 1:dim(sces[[1]]$data)[2])
 
   if(length(sces) > 1){
 	  for (i in 2:length(sces)) {
-	  	mat <- as(counts(sces[[i]]$sce), "RsparseMatrix")
-	  	colnames(mat) <- paste0(names(sces)[i], "cell", 1:dim(sces[[i]]$sce)[2])
+	  	mat <- as(sces[[i]]$data, "RsparseMatrix")
+	  	colnames(mat) <- paste0(names(sces)[i], "cell", 1:dim(sces[[i]]$data)[2])
 
 	  	allct <- .mergeSparseMatrix(allct, mat)
-	  	conditions <- c(conditions, rep(names(sces)[i], dim(sces[[i]]$sce)[2]))
+	  	conditions <- c(conditions, rep(names(sces)[i], dim(sces[[i]]$data)[2]))
 	  }
   }
   
-  lib_size <- colSums(allct)/mean(colSums(allct))
+  lib_size <- Matrix::colSums(allct)/mean(Matrix::colSums(allct))
   
   counts_norm_lib_size <- t(apply(allct, 1, function(x) x/lib_size ))
-  num.cells <- rowSums(allct != 0)
+  num.cells <- Matrix::rowSums(allct != 0)
   to.keep <- num.cells > 0
   
   scesdata <- log2(counts_norm_lib_size[to.keep, ] + 1)
