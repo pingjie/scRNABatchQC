@@ -20,16 +20,15 @@
 }
 
 .getWebGestaltPathway <- function(genes, organism) {
-  spathway<-WebGestaltR(enrichMethod="ORA",organism=organism,
-                        enrichDatabase="pathway_KEGG",interestGene=genes,
-                        interestGeneType="genesymbol",referenceSet="genome",
-                        is.output=FALSE)
-  if(is.null(spathway) | typeof(spathway) == "character"){
+  spathway <- WebGestaltR(enrichMethod = "ORA", organism = organism,
+                          enrichDatabase = "pathway_KEGG", interestGene = genes,
+                          interestGeneType = "genesymbol", referenceSet = "genome",
+                          is.output = FALSE)
+  if (is.null(spathway) | typeof(spathway) == "character") {
     return(NULL)
-  }else{
-    sdata<-data.frame(Pathway=gsub(" - .*", "", spathway$description),
-                      FDR=-log10(spathway$FDR),
-                      stringsAsFactors = F)
+  } else {
+    sdata <- data.frame(Pathway = gsub(" - .*", "", spathway$description),
+                        FDR = -log10(spathway$FDR), stringsAsFactors = F)
     return(sdata)
   }
 }
@@ -67,7 +66,7 @@
 .getMultiplePathway <- function(sces, metaObjectName) {
   sdata<-NULL
   for (i in 1:length(sces)) {
-    sce<-sces[[i]]$sce
+    sce <- sces[[i]]$data
     fNo <- which(names(metadata(sce)) == metaObjectName)
     if(length(fNo) == 0){
       next
@@ -97,7 +96,7 @@
   return(mdata)
 }
 
-.getColData<-function(sces, feature){
+.getColData <- function(sces, feature){
   if(missing(feature)){
     stop("Need to specify feature of .getColData")
   }
@@ -135,7 +134,7 @@
 
 .getDiffGenes <- function(scesall, organism, FDR = 0.01, geneNo = 50) {
   if(length(unique(scesall$condition)) == 1){
-    return (list(genes=NULL,pathways=NULL))
+    return(list(genes = NULL, pathways = NULL))
   }
   
   design <- model.matrix( ~ 0 + as.factor(scesall$condition))
@@ -175,59 +174,61 @@
     diffglist <- unique(c(diffglist, diffgenes))
   }
   
-  mDiffFC<-NULL
-  mDiffPathway<-NULL
+  mDiffFC <- NULL
+  mDiffPathway <- NULL
   if(length(diffglist) > 0){
-    diffFC<-NULL
+    diffFC <- NULL
     for (i in 1:coefNo) {
       matchid <- rownames(pairTables[[i]]) %in% diffglist
-      diffFC <- rbind(diffFC, data.frame(Comparison=cont[i], Gene=rownames(pairTables[[i]])[matchid], LogFold=pairTables[[i]]$logFC[matchid]))
+      diffFC <- rbind(diffFC, data.frame(Comparison = cont[i], 
+                                         Gene = rownames(pairTables[[i]])[matchid], 
+                                         LogFold = pairTables[[i]]$logFC[matchid]))
     }
-    mDiffFC<-dcast(diffFC, Gene ~ Comparison, value.var="LogFold", fill=0)
-    rownames(mDiffFC)<-mDiffFC$Gene
+    mDiffFC <- dcast(diffFC, Gene ~ Comparison, value.var = "LogFold", fill = 0)
+    rownames(mDiffFC) <- mDiffFC$Gene
     
-    for (con in cont){
-      if (!(con %in% colnames(mDiffFC))){
-        mDiffFC[,con]<-rnorm(nrow(mDiffFC), 0, 0.01)
+    for (con in cont) {
+      if (!(con %in% colnames(mDiffFC))) {
+        mDiffFC[, con] <- rnorm(nrow(mDiffFC), 0, 0.01)
       }
     }
-    mDiffFC<-mDiffFC[,-1,drop=F] 
+    mDiffFC <- mDiffFC[, -1, drop = F] 
     
-    if(!missing(organism)){
-      diffPathList<-NULL
+    if (!missing(organism)) {
+      diffPathList <- NULL
       for (i in 1:coefNo) {
         cat("pathway analysis of", i, ":", cont[i], "\n")
         
         diffvs <- pairTables[[i]][abs(pairTables[[i]]$logFC) > 1 & pairTables[[i]]$adj.P.Val < FDR, ]
-        if(nrow(diffvs) > 1){
-          alldiffgenes<-rownames(diffvs)
-          pathList<-.getWebGestaltPathway(alldiffgenes, organism)
-          if (!is.null(pathList)){
+        if (nrow(diffvs) > 1) {
+          alldiffgenes <- rownames(diffvs)
+          pathList <- .getWebGestaltPathway(alldiffgenes, organism)
+          if (!is.null(pathList)) {
             pathList$Comparison <- cont[[i]]
-            diffPathList<-rbind(diffPathList, pathList)
+            diffPathList <- rbind(diffPathList, pathList)
           }
         }
       }
       
-      if(!is.null(diffPathList)){
-        infDiffIndex<-diffPathList$FDR==Inf
-        if(sum(infDiffIndex) > 0){
-          maxFdr<-max(diffPathList$FDR[diffPathList$FDR!=Inf,])
-          diffPathList$FDR[infDiffIndex]<-maxFdr+1
+      if (!is.null(diffPathList)) {
+        infDiffIndex <- diffPathList$FDR == Inf
+        if (sum(infDiffIndex) > 0) {
+          maxFdr <- max(diffPathList$FDR[diffPathList$FDR != Inf, ])
+          diffPathList$FDR[infDiffIndex] <- maxFdr + 1
         }
-        mDiffPathway<-dcast(diffPathList, Pathway ~ Comparison, value.var="FDR", fill=0)
+        mDiffPathway <- dcast(diffPathList, Pathway ~ Comparison, value.var = "FDR", fill = 0)
         for (con in cont){
-          if (!(con %in% colnames(mDiffPathway))){
-            mDiffPathway[,con]<-abs(rnorm(nrow(mDiffPathway), 0, 0.01))
+          if (!(con %in% colnames(mDiffPathway))) {
+            mDiffPathway[, con] <- abs(rnorm(nrow(mDiffPathway), 0, 0.01))
           }
         }
-        rownames(mDiffPathway)<-mDiffPathway$Pathway
-        mDiffPathway<-mDiffPathway[,-1,drop=F]
+        rownames(mDiffPathway) <- mDiffPathway$Pathway
+        mDiffPathway <- mDiffPathway[, -1, drop = F]
       }
     }
   }
   
-  r <- list(genes=mDiffFC,pathways=mDiffPathway)
+  r <- list(genes = mDiffFC, pathways = mDiffPathway)
   return(r)
 }
 
@@ -237,27 +238,27 @@
 ### .getBiologicalSimilarity(sces, objectName="pc1genes", filterName="adj.P.Val", valueName="logFC")
 .getBiologicalSimilarity <- function(sces, objectName, filterName, valueName, defaultValue = 0) {
   objIndex <- which(names(sces[[1]]) == objectName)
-  sobj <- sces[[1]][[objIndex]]
+  sobj <- sces[[1]][objIndex][[1]]
   filterIndex  <- which(colnames(sobj) == filterName)
   valueIndex  <- which(colnames(sobj) == valueName)
   
   genelist <- c()
   for (i in 1:length(sces)) {
-    sce <- sces[[i]]
-    sobj <- sce[[objIndex]]
+    sobj <- sces[[i]][objIndex][[1]]
     sobj <- sobj[sobj[, filterIndex] < 0.01, ]
-    sgene <- rownames(sobj)[order(abs(sobj[,valueName]), decreasing = TRUE)][1:min(50, dim(sobj)[1])]
+    sgene <- rownames(sobj)[order(abs(sobj[, valueName]), decreasing = TRUE)][1:min(50, dim(sobj)[1])]
     genelist <- c(genelist, sgene)
   }
   genelist <- unique(genelist)
   
   sdata <- NULL
   for (i in 1:length(sces)) {
-    sce <- sces[[i]]
-    sobj <- sce[[objIndex]]
+    sobj <- sces[[i]][objIndex][[1]]
     matchid <- rownames(sobj) %in% genelist
-    filtered <- sobj[matchid,]
-    sdata <- rbind(sdata, data.frame(Sample = names(sces)[i], Feature = rownames(filtered), Value = filtered[, valueIndex]))
+    filtered <- sobj[matchid, ]
+    sdata <- rbind(sdata, data.frame(Sample = names(sces)[i], 
+                                     Feature = rownames(filtered), 
+                                     Value = filtered[, valueIndex]))
   }
   
   mdata <- dcast(sdata, Feature ~ Sample, value.var = "Value", fill = defaultValue)
@@ -312,3 +313,44 @@
   return(dat < lower.limit | upper.limit < dat)
 }
 
+.getVarExplainedData <- function(sce, feature, chunk = 1000, nvars_to_plot = 10, min_marginal_r2 = 0) {
+  
+  exprs_mat <- sce$data
+  rsquared_mat <- matrix(NA_real_, nrow = nrow(exprs_mat), ncol = length(feature), dimnames=list(rownames(sce$data), feature))
+  tss <- rowVars(DelayedArray(exprs_mat)) * (ncol(sce$data) - 1) 
+  
+  x <- sce[feature][[1]]
+  design <- model.matrix(~x)
+  QR <- qr(design)
+  
+  ngenes <- nrow(sce$data)
+  
+  if (ngenes > chunk) {
+    by.chunk <- cut(seq_len(ngenes), ceiling(ngenes/chunk))
+  } else {
+    by.chunk <- factor(integer(ngenes))
+  }
+  
+  rss <- numeric(ngenes)
+  
+  for (element in levels(by.chunk)) {
+    current <- by.chunk == element
+    cur.exprs <- exprs_mat[current, , drop = FALSE]
+    effects <- qr.qty(QR, as.matrix(t(cur.exprs)))
+    rss[current] <- colSums(effects[-seq_len(QR$rank), , drop = FALSE] ^ 2) # no need for special colSums, as this is always dense.
+  }
+  
+  rsquared_mat[, 1] <- 1 - rss/tss
+  
+  median_rsquared <- apply(rsquared_mat, 2, median, na.rm=TRUE)
+  oo_median <- order(median_rsquared, decreasing = TRUE)
+  keep_var <- median_rsquared >= min_marginal_r2
+  oo_median <- oo_median[keep_var[oo_median]]
+  
+  chosen_rsquared <- rsquared_mat[, head(oo_median, nvars_to_plot), drop=FALSE]
+  df <- suppressMessages(reshape2::melt(chosen_rsquared))
+  colnames(df) <- c("Feature", "Expl_Var", "R_squared")
+  
+  Pct_Var_Explained <- 100 * df$R_squared
+  return(Pct_Var_Explained)
+}

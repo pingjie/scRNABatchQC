@@ -2,11 +2,13 @@
 ##'
 ##' The function read multiple count table and prepare statistics information for each table
 ##'
-##' @param sampleTable the sample table with first column as sample name, second column as file location and an optional third column as transform
-##' @return a named list of makeSCRNAdata result
+##' @param sampleTable the sample table with first column as sample name, second column as file location
+##' @param organism the organism for annotation
+##' @return a named list of scRNA data
 ##' @export prepareSCRNADataSet
 ##' @examples 
-##' #sampleTable <- data.frame(Sample = c("S1", "S2", "S3"), File = c("count1.csv", "count2.csv", "count3.csv"))
+##' #sampleTable <- data.frame(Sample = c("S1", "S2", "S3"), 
+##'                            File = c("count1.csv", "count2.csv", "count3.csv"))
 ##' #sces <- prepareSCRNADataSet(sampleTable)
 prepareSCRNADataSet <- function(sampleTable, organism){
   result <- list()
@@ -27,7 +29,7 @@ prepareSCRNADataSet <- function(sampleTable, organism){
 ##'
 ##' The function prepare statistics information from multiple scRNA dataset.
 ##'
-##' @param sces a named list of makeSCRNAdata result
+##' @param sces a named list of scRNA data
 ##' @return a list with PCA and TSNE data
 ##' @importFrom Rtsne Rtsne
 ##' @importFrom Matrix Matrix

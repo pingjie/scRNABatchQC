@@ -3,20 +3,20 @@
 ##' The function prepare statistics information from single cell RNAseq data table.
 ##'
 ##' @param count the count table with first column as gene name
-##' @return a named list containing sce:SingleCellExperiment, 
+##' @return a named list containing scRNA data, 
 ##'                                 hvg:high variance genes, 
 ##'                                 pc1genes: genes in first principle component,
-##'                                 var.fit: variance trend fit result
+##'                                 varTrend: variance trend fit result
 ##' @importFrom scran trendVar decomposeVar
 ##' @importFrom limma lmFit eBayes topTable
 ##' @importFrom Matrix Matrix
 ##' @export prepareSCRNAData
 ##' @examples 
-##' #count1 <- as.matrix(read.csv("sample1.csv"))
-##' #sce1<-prepareSCRNAData(count1)
+##' #count1 <- as.matrix(read.csv("sample1.csv", header = F, row.names = 1))
+##' #sce1 <- prepareSCRNAData(count1)
 prepareSCRNAData <- function(counts, organism) {
   if(is.data.frame(counts)){
-    counts<-as.matrix(counts)
+    counts <- as.matrix(counts)
   }
   stopifnot(is.matrix(counts))
   
@@ -30,6 +30,9 @@ prepareSCRNAData <- function(counts, organism) {
   scdata$total_features <- Matrix::colSums(counts != 0)
   
   scdata$is.mito <- grepl("^mt-|^MT-", rownames(counts))
+  
+  scdata$total_counts_Mt <- Matrix::colSums(counts[scdata$is.mito, ])
+  scdata$log10_total_counts_Mt <- log10(scdata$total_counts_Mt)
   scdata$pct_counts_Mt <- 100 * Matrix::colSums(counts[scdata$is.mito, ]) / Matrix::colSums(counts)
   
   libsize.drop <- .findOutlier(scdata$total_counts, nmads = 3, type = "lower", log = TRUE)
@@ -39,7 +42,9 @@ prepareSCRNAData <- function(counts, organism) {
   scdata$counts <- scdata$rawdata[, !(libsize.drop | feature.drop | mito.drop)]
   
   scdata$total_counts <- Matrix::colSums(scdata$counts)
+  scdata$log10_total_counts <- log10(scdata$total_counts)
   scdata$total_features <- Matrix::colSums(scdata$counts != 0)
+  scdata$log10_total_features <- log10(scdata$total_features)
   
   scdata$lib_size <- scdata$total_counts/mean(scdata$total_counts)
   

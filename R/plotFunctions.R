@@ -2,9 +2,10 @@
 DEFAULT_LINE_SIZE <- 1.5
 DEFAULT_POINT_SIZE <- 1
 
-plotClusterSeparateness <- function(sce, ...) {   ### to be done
+### package cluster, dynamicTreeCut
+plotClusterSeparateness <- function(sce, ...) {
   ####check the separateness of clusters using the silhouette width
-  pcs <- reducedDim(sce, "PCA")
+  pcs <- sce$pca$x
   my.dist <- dist(pcs)
   my.tree <- hclust(my.dist, method = "ward.D2")
   
@@ -13,15 +14,16 @@ plotClusterSeparateness <- function(sce, ...) {   ### to be done
   sce$cluster <- factor(my.clusters)
   
   ####check the separatedness of clusters using the silhouette width
-  
-  clust.col <- scater:::.get_palette("tableau10medium") # hidden scater colours
+  clust.col <- rainbow(10)
   sil <- silhouette(my.clusters, dist = my.dist)
   sil.cols <- clust.col[ifelse(sil[, 3] > 0, sil[, 1], sil[, 2])]
   sil.cols <- sil.cols[order(-sil[, 1], sil[, 3])]
-  plot(sil, main = paste(length(unique(my.clusters)), "clusters"), border = sil.cols, col = sil.cols, do.col.sort = FALSE, ...)
+  plot(sil, main = paste(length(unique(my.clusters)), "clusters"), 
+       border = sil.cols, col = sil.cols, do.col.sort = FALSE, ...)
 }
 
-plotDensity <- function(sces, feature, featureLabel = "", scolors = 1:length(sces), size = DEFAULT_LINE_SIZE ) {
+plotDensity <- function(sces, feature, featureLabel = "", 
+                        scolors = 1:length(sces), size = DEFAULT_LINE_SIZE ) {
   featureData <- .getColData(sces, feature)
   featureLabel <- ifelse(featureLabel == "", feature, featureLabel)
 
@@ -34,7 +36,8 @@ plotDensity <- function(sces, feature, featureLabel = "", scolors = 1:length(sce
 }
 
 ### top 500 genes count distribution
-plotGeneCountDistribution <- function(sces, scolors = 1:length(sces), nfeatures = 500, size = DEFAULT_LINE_SIZE) {
+plotGeneCountDistribution <- function(sces, scolors = 1:length(sces), 
+                                      nfeatures = 500, size = DEFAULT_LINE_SIZE) {
   prop_mat <- c()
   
   for (i in 1:length(sces)) {
@@ -99,7 +102,8 @@ plotAveCountVSdetectRate <- function(sces, scolors = 1:length(sces), size = DEFA
 }
 
 ##variance trend
-plotVarianceTrend <- function(sces, scolors = 1:length(sces), pointSize=DEFAULT_POINT_SIZE, lineSize=DEFAULT_LINE_SIZE) {
+plotVarianceTrend <- function(sces, scolors = 1:length(sces), 
+                              pointSize=DEFAULT_POINT_SIZE, lineSize=DEFAULT_LINE_SIZE) {
   vartrend_dat <- data.frame()
   for (i in 1:length(sces)) {
     tmpvartrend <- data.frame(mean = sces[[i]]$hvg$mean, 
@@ -122,18 +126,17 @@ plotVarianceTrend <- function(sces, scolors = 1:length(sces), pointSize=DEFAULT_
   return(p)
 }
 
-plotMultiSamplesOneExplanatoryVariables <- function(sces, scolors = 1:length(sces), feature, size = DEFAULT_LINE_SIZE) { ## to be done
-
+plotMultiSamplesOneExplanatoryVariables <- function(sces, scolors = 1:length(sces), 
+                                                    feature, size = DEFAULT_LINE_SIZE) {
   if(missing(feature)){
     stop("Need to specify feature of plotMultiSamplesOneExplanatoryVariables")
   }
 
   pct_var_explained <- c()
-  sample <-c()
+  sample <- c()
   for (i in 1:length(sces)) {
-    pev <- plotExplanatoryVariables(sces[[i]]$sce, variables = c(feature)) ##scater
-    pct_var_explained <- c(pct_var_explained, pev$data$Pct_Var_Explained)
-    sample <-c(sample, rep(names(sces)[i], length(pev$data$Pct_Var_Explained)))
+    pct_var_explained <- .getVarExplainedData(sces[[i]], feature)
+    sample <- c(sample, rep(names(sces)[i], length(pct_var_explained)))
   }
   
   dat <- data.frame(Pct_Var_Explained = pct_var_explained,  Sample = sample)
