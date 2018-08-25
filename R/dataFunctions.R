@@ -36,9 +36,9 @@
 .getIndividualPathway <- function(sobj, filterName, organism) {
   filterIndex  <- which(colnames(sobj) == filterName)
   
-  sobj<-sobj[sobj[, filterIndex] < 0.01, ]
+  sobj <- sobj[sobj[, filterIndex] < 0.01, ]
   sgenes <- rownames(sobj)
-  sdata<-.getWebGestaltPathway(sgenes, organism)
+  sdata <- .getWebGestaltPathway(sgenes, organism)
   return(sdata)
 }
 
