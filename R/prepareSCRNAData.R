@@ -46,6 +46,12 @@ prepareSCRNAData <- function(counts, organism) {
   scdata$total_features <- Matrix::colSums(scdata$counts != 0)
   scdata$log10_total_features <- log10(scdata$total_features)
   
+  scdata$is.mito <- grepl("^mt-|^MT-", rownames(scdata$counts))
+  
+  scdata$total_counts_Mt <- Matrix::colSums(scdata$counts[scdata$is.mito, ])
+  scdata$log10_total_counts_Mt <- log10(scdata$total_counts_Mt)
+  scdata$pct_counts_Mt <- 100 * Matrix::colSums(counts[scdata$is.mito, ]) / Matrix::colSums(scdata$counts)
+  
   scdata$lib_size <- scdata$total_counts/mean(scdata$total_counts)
   
   counts_norm_lib_size <- t(apply(scdata$counts, 1, function(x) x/scdata$lib_size ))
