@@ -15,7 +15,7 @@
 ##' #count1 <- as.matrix(read.csv("sample1.csv", header = F, row.names = 1))
 ##' #sce1 <- prepareSCRNAData(count1)
 prepareSCRNAData <- function(counts, organism) {
-  if(is.data.frame(counts)){
+  if(!is.matrix(counts)){
     counts <- as.matrix(counts)
   }
   stopifnot(is.matrix(counts))
@@ -35,11 +35,11 @@ prepareSCRNAData <- function(counts, organism) {
   scdata$log10_total_counts_Mt <- log10(scdata$total_counts_Mt)
   scdata$pct_counts_Mt <- 100 * Matrix::colSums(counts[scdata$is.mito, ]) / Matrix::colSums(counts)
   
-  libsize.drop <- .findOutlier(scdata$total_counts, nmads = 3, type = "lower", log = TRUE)
-  feature.drop <- .findOutlier(scdata$total_features, nmads = 3, type = "lower", log = TRUE)
-  mito.drop <- .findOutlier(scdata$pct_counts_Mt, nmads = 3, type = "higher")
+  scdata$libsize.drop <- .findOutlier(scdata$total_counts, nmads = 3, type = "lower", log = TRUE)
+  scdata$feature.drop <- .findOutlier(scdata$total_features, nmads = 3, type = "lower", log = TRUE)
+  scdata$mito.drop <- .findOutlier(scdata$pct_counts_Mt, nmads = 3, type = "higher")
   
-  scdata$counts <- scdata$rawdata[, !(libsize.drop | feature.drop | mito.drop)]
+  scdata$counts <- scdata$rawdata[, !(scdata$libsize.drop | scdata$feature.drop | scdata$mito.drop)]
   
   scdata$total_counts <- Matrix::colSums(scdata$counts)
   scdata$log10_total_counts <- log10(scdata$total_counts)
