@@ -42,56 +42,34 @@
   return(sdata)
 }
 
-.getMetaData <- function(sces, metaObjectName) {
-  fNo <- which(names(metadata(sces[[1]]$sce)) == metaObjectName)
-  if(length(fNo) == 0){
-    stop(paste0(metaObjectName, " is not exists in object sces"))
-  }
-  
-  sdata<-NULL
-  isvector<-FALSE
-  for (i in 1:length(sces)) {
-    sce<-sces[[i]]$sce
-    fdata = metadata(sce)[[fNo]]
-    if(is.vector(fdata)){
-      fdata["Sample"]<-names(sces)[i]
-    }else{
-      fdata$Sample<-names(sces)[i]
-    }
-    sdata<-rbind(sdata, fdata)
-  }
-  return (sdata)
-}
-
 .getMultiplePathway <- function(sces, metaObjectName) {
   sdata<-NULL
   for (i in 1:length(sces)) {
-    sce <- sces[[i]]$data
-    fNo <- which(names(metadata(sce)) == metaObjectName)
+    fNo <- which(names(sces[[i]]) == metaObjectName)
     if(length(fNo) == 0){
       next
     }
-    spathway = metadata(sce)[[fNo]]
-    spathway$Sample = names(sces)[i]
-    sdata<-rbind(sdata, spathway)
+    spathway <- sces[[i]][fNo][[1]]
+    spathway$Sample <- names(sces)[i]
+    sdata <- rbind(sdata, spathway)
   }
   
   if(is.null(sdata)){
     stop(paste0(metaObjectName, " is not exists in object sces"))
   }
   
-  sdata$FDR[sdata$FDR==Inf]<-max(sdata$FDR[sdata$FDR!=Inf]) + 1
+  sdata$FDR[sdata$FDR == Inf] <- max(sdata$FDR[sdata$FDR != Inf]) + 1
   
-  mdata<-reshape2::dcast(sdata, Pathway~Sample, value.var="FDR", fill=0)
+  mdata <- reshape2::dcast(sdata, Pathway ~ Sample, value.var = "FDR", fill = 0)
   
   for(sample in names(sces)){
     if(!(sample %in% colnames(mdata))){
-      mdata[,sample]<-abs(rnorm(nrow(mdata), 0, 0.01))
+      mdata[,sample] <- abs(rnorm(nrow(mdata), 0, 0.01))
     }
   }
   
-  rownames(mdata)<-mdata$Pathway
-  mdata<-as.matrix(mdata[,c(2:ncol(mdata)),drop=F])
+  rownames(mdata) <- mdata$Pathway
+  mdata <- as.matrix(mdata[, c(2 : ncol(mdata)), drop = F])
   
   return(mdata)
 }
